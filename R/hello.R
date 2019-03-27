@@ -37,7 +37,9 @@ system.time(parsedFormula <- lFormula(formula = y ~ 1 + service + (1|s) + (1|d) 
                                       data = InstEval,
                                       REML=FALSE))
 system.time(devianceFunction <- do.call(mkLmerDevfun, parsedFormula))
+rho_preopt <- environment(devianceFunction)
 system.time(optimizerOutput <- optimizeLmer(devianceFunction))
+rho_postopt <- environment(devianceFunction)
 system.time(mkMerMod( rho = environment(devianceFunction),
                       opt = optimizerOutput,
                       reTrms = parsedFormula$reTrms,
@@ -63,7 +65,7 @@ jmer <- function(formula, data, REML=TRUE){
 
     jout <- julia_command(jcall)
 
-    optimizerOutput <- list(par=julia_eval("jm.optsum.final"),
+    joptimizerOutput <- list(par=julia_eval("jm.optsum.final"),
                          fval=julia_eval("jm.optsum.fmin"),
                          feval=julia_eval("jm.optsum.feval"),
                          # MixedModels.jl doesn't yet implement a lot of the
@@ -82,9 +84,17 @@ jmer <- function(formula, data, REML=TRUE){
     # in lme4 and then we don't need to worry about converting formats and
     # datatypes
 
-    parsedFormula <- lFormula(formula=formula,data=data, REML=REML)
+    parsedFormula <- lFormula(formula=formula,
+                              data=data,
+                              REML=REML)
     # this bit should probably be reworked to extract the julia fields
     devianceFunction <- do.call(mkLmerDevfun, parsedFormula)
+    optimizerOutput <- optimizeLmer(devianceFunction,start=joptimizerOutput$par,
+                                    control=list(maxeval=1))
+    optimizerOutput$feval <- joptimizerOutput$feval
+    optimizerOutput$message <- joptimizerOutput$message
+    optimizerOutput$optimizer <- joptimizerOutput$optimizer
+
     rho <- environment(devianceFunction)
     # especially rho$resp seems relevant
 
@@ -93,7 +103,6 @@ jmer <- function(formula, data, REML=TRUE){
             reTrms = parsedFormula$reTrms,
             fr = parsedFormula$fr)
 
-    optimizerOutput
 }
 
 system.time(jm1 <- jmer(y ~ 1 + service + (1|s) + (1|d) + (1|dept), InstEval, REML=FALSE))
