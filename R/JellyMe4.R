@@ -71,7 +71,7 @@ jmer <- function(formula, data, REML=TRUE){
     # Also, this means we suffer/benefit from the same level of compatibility in
     # the formula as in JellyMe4, i.e. currently no support for the ||
 
-    jf <- deparse(formula)
+    jf <- deparse1(formula)
     jreml = ifelse(REML, "true", "false")
 
     julia_assign("jmerdat",data)
